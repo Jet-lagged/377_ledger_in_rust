@@ -94,4 +94,17 @@ impl Bank {
         println!("{}", message);
         return;
     }
+
+    pub fn transfer(&mut self, worker_id: i32, ledger_id: i32, src_id: i32, dest_id: i32, amount: i32) {
+        if src_id == dest_id {
+            let message = format!(
+                "Worker {} failed to complete ledger {}: tranfer {} from account {} to account {}",
+                worker_id, ledger_id, amount, src_id, dest_id
+            );
+            let mut num_fail = self.num_fail.lock().unwrap();
+            *num_fail += 1;
+            println!("{}", message);
+            return;
+        }
+    }
 }
