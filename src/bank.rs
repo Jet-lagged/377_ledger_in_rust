@@ -96,6 +96,7 @@ impl Bank {
     }
 
     pub fn transfer(&mut self, worker_id: i32, ledger_id: i32, src_id: usize, dest_id: usize, amount: i32) {
+        // Handle tranfering money to oneself
         if src_id == dest_id {
             let message = format!(
                 "Worker {} failed to complete ledger {}: tranfer {} from account {} to account {}",
@@ -107,22 +108,24 @@ impl Bank {
             return;
         }
         
-
-        // THIS NEEDS SERIOUS TESTING 
-        
+        // split ownership of the account vector to access two accounts at once
         let accounts = &mut self.accounts;
         let (left, right) = accounts.split_at_mut(dest_id.max(src_id));
-        if src_id < dest_id {
-            let src_acnt = &mut left[src_id];
-            let dest_acnt = &mut right[dest_id - (dest_id.max(src_id))];
-            let src_lock = src_acnt.lock.lock().unwrap();
-            let dest_lock = dest_acnt.lock.lock().unwrap();
+        let (src_acnt, dest_acnt) = if src_id < dest_id {
+            (&mut left[src_id], &mut right[dest_id - (dest_id.max(src_id))])
         } else {
-            let dest_acnt = &mut left[dest_id];
-            let src_acnt = &mut right[src_id - (dest_id.max(src_id))];
-            let dest_lock = dest_acnt.lock.lock().unwrap();
-            let src_lock = src_acnt.lock.lock().unwrap();
+            (&mut right[src_id - (dest_id.max(src_id))], &mut left[dest_id])
         };
+        
+        // assign locks in consistant order to prevent deadlock
+        let (src_lock, dest_lock);
+        if src_id < dest_id {
+            src_lock = src_acnt.lock.lock().unwrap();
+            dest_lock = dest_acnt.lock.lock().unwrap();
+        } else {
+            dest_lock = dest_acnt.lock.lock().unwrap();
+            src_lock = src_acnt.lock.lock().unwrap();
+        }
         
         // Fail
         if src_acnt.balance < amount {
@@ -130,14 +133,36 @@ impl Bank {
                 "Worker {} failed to complete ledger {}: tranfer {} from account {} to account {}",
                 worker_id, ledger_id, amount, src_id, dest_id
             );
+            if src_id < dest_id {
+                drop(src_lock);
+                drop(dest_lock);
+            } else {
+                drop(dest_lock);
+                drop(src_lock);
+            }
             let mut num_fail = self.num_fail.lock().unwrap();
             *num_fail += 1;
             println!("{}", message);
+            return;
+        }
 
-            // TODO: initalize the accoutns and locks so that the scope is outside
+        // Success
+        src_acnt.balance -= amount;
+        dest_acnt.balance += amount;
+        let message = format!(
+            "Worker {} completed ledger {}: tranfer {} from account {} to account {}",
+            worker_id, ledger_id, amount, src_id, dest_id
+        );
+        if src_id < dest_id {
             drop(src_lock);
             drop(dest_lock);
-        }  
-
+        } else {
+            drop(dest_lock);
+            drop(src_lock);
+        }
+        let mut num_fail = self.num_fail.lock().unwrap();
+        *num_fail += 1;
+        println!("{}", message);
+        return;
     }
 }
