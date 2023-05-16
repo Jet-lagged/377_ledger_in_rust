@@ -15,7 +15,7 @@ use std::sync::{Mutex, Arc, RwLock};
 /// * `num_fail`: a shared counter that keeps track of the number of failed operations
 /// performed by the bank. It is an `Arc` (atomic reference counting) wrapped `Mutex` that allows
 /// multiple threads to safely access and modify the counter.
-pub(crate) struct Bank {
+pub struct Bank {
     _num: i32,
     accounts: Vec<Account>,
     num_succ: Arc<Mutex<i32>>,
