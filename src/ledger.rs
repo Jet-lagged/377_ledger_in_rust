@@ -1,14 +1,13 @@
-use std::sync::{Arc, Condvar, Mutex};
-use std::io::{self, BufRead, BufReader};
+use std::sync::{Condvar, Mutex};
+use std::io::{BufRead, BufReader};
 use std::fs::File;
-mod bank;
-use bank::Bank;
+
 
 pub enum Mode {
     Deposit,
     Withdraw,
     Transfer,
-    Check_Balance,
+    CheckBalance,
 }
 pub struct Ledger {
 	pub from: i32,
@@ -43,7 +42,7 @@ impl BoundedBuffer {
         while self.count == self.max_size {
             lock = self.not_full.wait(lock).unwrap();
         }
-        self.buffer.push = item;
+        self.buffer.push(item);
         self.count += 1;
         self.not_empty.notify_one();
     }
@@ -53,48 +52,46 @@ impl BoundedBuffer {
         while self.count == 0 {
             lock = self.not_empty.wait(lock).unwrap();
         }
-        let item = self.buffer.remove(0).clone();
+        let item = self.buffer.remove(0);
         self.count -= 1;
         self.not_full.notify_one();
         item
     }
 }
 
+
+// not actually implemented
 pub fn read_ledger_file(filename: &str, bb: BoundedBuffer) {
     let file = File::open(filename).unwrap();
     let reader = BufReader::new(file);
     for line in reader.lines() {
         let line = line.unwrap();
         let fields: Vec<&str> = line.split_whitespace().collect();
-
-		if fields.len() != 4 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Invalid number of fields in ledger entry",
-            ));
-        }
-
         let from_id = fields[0].parse::<i32>().unwrap();
         let to_id = fields[1].parse::<i32>().unwrap();
         let amount = fields[2].parse::<i32>().unwrap();
-        let mode = match values[3] {
+        let mode = match fields[3] {
             "D" => Mode::Deposit,
             "W" => Mode::Withdraw,
             "T" => Mode::Transfer,
             "C" => Mode::CheckBalance,
             _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "Invalid mode in ledger entry",
-                ))
+                println!("Error: mod not specified");
+                return;
             }
         };
+
+        // TODO: THINK UP WAY TO CORRECTLY ADD LEDGER ID INTO SYSTEM
         let ledger = Ledger {
-            from_id,
-            to_id,
+            from,
+            to,
             amount,
             mode,
         };
-        bb.lock().unwrap().put(ledger);
+
+        // write to buffer
+        let bb_lock = bb.lock.lock().unwrap();
+        bb.put(ledger);
+        drop(bb_lock);
     }
 }
