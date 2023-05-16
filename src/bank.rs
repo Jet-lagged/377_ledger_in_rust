@@ -223,6 +223,7 @@ impl Bank {
 
     /// This function checks the balance of a given account and prints it to the console.
     /// 
+    /// 
     /// Arguments:
     /// 
     /// * `account_id`: The `account_id` of the `Account` who's balanced is being checked
@@ -232,7 +233,8 @@ impl Bank {
         let message = format!(
             "ID# {:2} | {:9}", account.account_id, account.balance
         );
-        drop(account_lock);
+        // TODO: check for if its okay to actually print after dropping lock?
+        drop(account_lock); 
         println!("{}", message);
     }
 }
