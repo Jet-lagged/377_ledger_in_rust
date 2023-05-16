@@ -67,8 +67,8 @@ pub fn read_ledger_file(filename: &str, bb: BoundedBuffer) {
     for line in reader.lines() {
         let line = line.unwrap();
         let fields: Vec<&str> = line.split_whitespace().collect();
-        let from_id = fields[0].parse::<i32>().unwrap();
-        let to_id = fields[1].parse::<i32>().unwrap();
+        let from = fields[0].parse::<i32>().unwrap();
+        let to = fields[1].parse::<i32>().unwrap();
         let amount = fields[2].parse::<i32>().unwrap();
         let mode = match fields[3] {
             "D" => Mode::Deposit,
@@ -87,6 +87,7 @@ pub fn read_ledger_file(filename: &str, bb: BoundedBuffer) {
             to,
             amount,
             mode,
+            ledgerID: ???,
         };
 
         // write to buffer
