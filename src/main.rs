@@ -16,4 +16,5 @@ fn main() {
     bank.transfer(0, 3, 1, 0, 300);
     // 0 has 400, 1 has 200
     bank.print_account();
+    bank.check_balance(1);
 }
