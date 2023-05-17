@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::thread;
-use std::time::Duration;
+
 
 use crate::bank::Bank;
 
@@ -60,21 +60,39 @@ pub fn read_ledger_file(filename: &str) -> Vec<Ledger> {
 
 // SOMEHOW
 // this mess of a InitBank works and final balance of account 0 is 200
-pub fn InitBank(num_workers: i32, filename: &str){
-    let mut bank = Bank::new(10);
+pub fn init_bank(num_workers: i32, filename: &str){
+    let bank = Bank::new(12);
     bank.print_account();
-    let mut bank = Arc::new(Mutex::new(Bank::new(10)));
+    let bank = Arc::new(Mutex::new(Bank::new(10)));
 
-    let mut ledger_list = read_ledger_file(filename);
+    let ledger_list = Arc::new(Mutex::new(read_ledger_file(filename)));
 
     let mut handles = vec![];
-    let random_numbers = [751, 42, 879, 614, 187, 935, 263, 512, 933, 65];
-    for i in 0..10 {
-        let mut bank = Arc::clone(&bank);
+    for i in 0..num_workers as usize {
+        let bank = Arc::clone(&bank);
+        let ledger_list = Arc::clone(&ledger_list);
         let handle = thread::spawn(move || {
-            thread::sleep(Duration::from_millis(random_numbers[i]));
-            bank.lock().unwrap().deposit(i as i32, 0, 0, 69);
+            loop {
+                let worker_id = i as i32;
+                let mut ledger_lock = ledger_list.lock().unwrap();
+                if ledger_lock.is_empty() {
+                    break; // lock dropped here
+                } 
+
+                let ledger:Ledger = ledger_lock.remove(0);
+                drop(ledger_lock);
+
+                let mut bank_lock = bank.lock().unwrap();
+                match ledger.mode {
+                    Mode::Deposit => bank_lock.deposit(worker_id, ledger.ledger_id, ledger.from, ledger.amount),
+                    Mode::Withdraw => bank_lock.withdraw(worker_id, ledger.ledger_id, ledger.from, ledger.amount),
+                    Mode::Transfer => bank_lock.transfer(worker_id, ledger.ledger_id, ledger.from as usize, ledger.to as usize, ledger.amount),
+                    Mode::CheckBalance => bank_lock.check_balance(worker_id, ledger.from),
+                }
+                drop(bank_lock);
+            }
         });
+
         handles.push(handle);
     }
 
@@ -84,6 +102,7 @@ pub fn InitBank(num_workers: i32, filename: &str){
 
     let lock = bank.lock().unwrap();
     lock.print_account();
+    drop(lock);
     println!("---------------------------------------------------------------------\nFINISHED INIT BANK"); 
 }
 

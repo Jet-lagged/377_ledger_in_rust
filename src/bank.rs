@@ -228,11 +228,11 @@ impl Bank {
     /// Arguments:
     /// 
     /// * `account_id`: The `account_id` of the `Account` who's balanced is being checked
-    pub fn check_balance(&self, account_id: i32) {
+    pub fn check_balance(&self, worker_id: i32, account_id: i32) {
         let account = &self.accounts[account_id as usize];
         let account_lock = account.lock.read().unwrap();
         let message = format!(
-            "ID# {:2} | {:9}", account.account_id, account.balance
+            "ID# {:2} | {:9} --- printed by worker {}", account.account_id, account.balance, worker_id
         );
         // TODO: check for if its okay to actually print after dropping lock?
         drop(account_lock); 
