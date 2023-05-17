@@ -1,4 +1,3 @@
-use std::sync::{Mutex, Arc, RwLock};
 #[derive(Debug)]
 /// The `Bank` struct contains a number, a vector of `Account` structs, and two `Arc<Mutex<i32>>`
 /// variables for tracking successful and failed operations.
@@ -18,8 +17,8 @@ use std::sync::{Mutex, Arc, RwLock};
 pub struct Bank {
     pub num: i32,
     accounts: Vec<Account>,
-    num_succ: Arc<Mutex<i32>>,
-    num_fail: Arc<Mutex<i32>>,
+    num_succ: i32,
+    num_fail: i32,
 }
 
 #[derive(Debug)]
@@ -37,7 +36,6 @@ pub struct Bank {
 struct Account {
     account_id: i32,
     balance: i32,
-    lock: RwLock<()>,
 }
 
 
@@ -58,15 +56,12 @@ impl Bank {
             accounts.push(Account {
                 account_id: i,
                 balance: 0,
-                lock: RwLock::new(()),
             });
         }
-        let num_succ = Arc::new(Mutex::new(0));
-        let num_fail = Arc::new(Mutex::new(0));
         Bank {
             num,
-            num_succ,
-            num_fail,
+            num_succ: 0,
+            num_fail: 0,
             accounts,
         }
     }
@@ -75,13 +70,9 @@ impl Bank {
     /// the number of successful and failed transactions.
     pub fn print_account(&self) {
         for account in &self.accounts {
-            let _lock = account.lock.read().unwrap();
             println!("ID# {:2} | {:9}", account.account_id, account.balance);
-        } // auto drops lock
-
-        let num_succ = self.num_succ.lock().unwrap();
-        let num_fail = self.num_fail.lock().unwrap();
-        println!("Success: {:2} Fails: {:2}", *num_succ, *num_fail);
+        }
+        println!("Success: {:2} Fails: {:2}", self.num_succ, self.num_fail);
     }
 
     /// Adds a specified amount to a specified account's balance and prints a success
@@ -96,15 +87,12 @@ impl Bank {
     pub fn deposit(&mut self, worker_id: i32, ledger_id: i32, account_id: i32, amount: i32) {
         // Success (always)
         let mut account = &mut self.accounts[account_id as usize];
-        let account_lock = account.lock.write().unwrap();
         account.balance += amount;
         let message = format!(
             "Worker {:2} completed ledger {:2}:     deposit {:9} into account {:2}",
             worker_id, ledger_id, amount, account_id
         );
-        drop(account_lock);
-        let mut num_succ = self.num_succ.lock().unwrap();
-        *num_succ += 1;
+        self.num_succ += 1;
         println!("{}", message);
         return;
     }
@@ -120,7 +108,6 @@ impl Bank {
     /// * `amount`: The amount of money to withdraw from the `Account`.
     pub fn withdraw(&mut self, worker_id: i32, ledger_id: i32, account_id: i32, amount: i32) {
         let mut account = &mut self.accounts[account_id as usize];
-        let account_lock = account.lock.write().unwrap();
 
         // Fail 
         if account.balance < amount {
@@ -128,9 +115,7 @@ impl Bank {
                 "Worker {:2} -FAILED-  ledger {:2}:    withdraw {:9} from account {:2}",
                 worker_id, ledger_id, amount, account_id
             );
-            drop(account_lock);
-            let mut num_fail = self.num_fail.lock().unwrap();
-            *num_fail += 1;
+            self.num_fail += 1;
             println!("{}", message);
             return;
         }
@@ -141,9 +126,7 @@ impl Bank {
             "Worker {:2} completed ledger {:2}:    withdraw {:9} from account {:2}",
             worker_id, ledger_id, amount, account_id
         );
-        drop(account_lock);
-        let mut num_succ = self.num_succ.lock().unwrap();
-        *num_succ += 1;
+        self.num_succ += 1;
         println!("{}", message);
         return;
     }
@@ -165,8 +148,7 @@ impl Bank {
                 "Worker {:2} -FAILED-  ledger {:2}:    transfer {:9} from account {:2} to account {:2}",
                 worker_id, ledger_id, amount, src_id, dest_id
             );
-            let mut num_fail = self.num_fail.lock().unwrap();
-            *num_fail += 1;
+            self.num_fail += 1;
             println!("{}", message);
             return;
         }
@@ -180,26 +162,13 @@ impl Bank {
             (&mut right[src_id - (dest_id.max(src_id))], &mut left[dest_id])
         };
         
-        // assign locks in consistant order to prevent deadlock
-        let (src_lock, dest_lock);
-        if src_id < dest_id {
-            src_lock = src_acnt.lock.write().unwrap();
-            dest_lock = dest_acnt.lock.write().unwrap();
-        } else {
-            dest_lock = dest_acnt.lock.write().unwrap();
-            src_lock = src_acnt.lock.write().unwrap();
-        }
-        
         // Fail
         if src_acnt.balance < amount {
             let message = format!(
                 "Worker {:2} -FAILED-  ledger {:2}:    transfer {:9} from account {:2} to account {:2}",
                 worker_id, ledger_id, amount, src_id, dest_id
             );
-            drop(src_lock);
-            drop(dest_lock);
-            let mut num_fail = self.num_fail.lock().unwrap();
-            *num_fail += 1;
+            self.num_fail += 1;
             println!("{}", message);
             return;
         }
@@ -211,10 +180,7 @@ impl Bank {
             "Worker {:2} completed ledger {:2}:    transfer {:9} from account {:2} to account {:2}",
             worker_id, ledger_id, amount, src_id, dest_id
         );
-        drop(src_lock);
-        drop(dest_lock);
-        let mut num_fail = self.num_fail.lock().unwrap();
-        *num_fail += 1;
+        self.num_succ += 1;
         println!("{}", message);
         return;
     }
@@ -227,15 +193,12 @@ impl Bank {
     /// * `worker_id`: An integer representing the ID of the worker who completed the ledger.
     /// * `ledger_id`: The ID of the ledger for which the balance is being checked.
     /// * `account_id`: The ID of the account for which the balance needs to be checked.
-    pub fn check_balance(&self, worker_id: i32, ledger_id: i32, account_id: i32) {
+    pub fn check_balance(&mut self, worker_id: i32, ledger_id: i32, account_id: i32) {
         let account = &self.accounts[account_id as usize];
-        let account_lock = account.lock.read().unwrap();
         let message = format!(
             "Worker {:2} completed ledger {:2}:    balance= {:9}  for account {:2}", worker_id, ledger_id, account.balance, account.account_id
         );
-        drop(account_lock);
-        let mut num_succ = self.num_succ.lock().unwrap();
-        *num_succ += 1;
+        self.num_succ += 1;
         println!("{}", message);
     }
 }

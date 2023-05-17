@@ -131,6 +131,7 @@ pub fn init_bank(num_workers: i32, filename: &str, sleep: bool){
 
                 // process ledger
                 let mut bank_lock = bank.lock().unwrap();
+                thread::sleep(Duration::from_millis(3000 as u64));
                 if l.from < 0 || l.from >= bank_lock.num {
                     println!("Worker {:2} -FAILED-  ledger {:2}:   Ledger Error: no account of this ID", worker_id, l.ledger_id);
                 } else {
