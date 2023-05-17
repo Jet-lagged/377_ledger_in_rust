@@ -135,5 +135,5 @@ pub fn InitBank(num_workers: i32, filename: &str){
         handle.join().unwrap();
     }
 
-    println!("---------------------------------------------------------------------\nFINISHED INIT BANK");
+    println!("---------------------------------------------------------------------\nFINISHED INIT BANK"); 
 }
