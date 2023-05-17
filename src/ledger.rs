@@ -1,4 +1,9 @@
 use std::sync::{Arc, Condvar, Mutex};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::thread;
+
+use crate::bank::Bank;
 
 #[derive(Debug)]
 pub enum Mode {
@@ -63,8 +68,8 @@ impl BoundedBuffer {
 
 
 // not actually implemented
-pub fn read_ledger_line(line: &str, bb: &mut BoundedBuffer, ledger_counter: Arc<Mutex<i32>>) {
-    let fields: Vec<&str> = line.split_whitespace().collect();
+pub fn read_ledger_line(line: String, bb: &mut BoundedBuffer, ledger_counter: Arc<Mutex<i32>>) {
+    let fields: Vec<&str> = line.split_whitespace().collect::<Vec<&str>>();
     let from = fields[0].parse::<i32>().unwrap();
     let to = fields[1].parse::<i32>().unwrap();
     let amount = fields[2].parse::<i32>().unwrap();
@@ -92,4 +97,43 @@ pub fn read_ledger_line(line: &str, bb: &mut BoundedBuffer, ledger_counter: Arc<
     // write to buffer
     bb.put(ledger);
     drop(counter_lock);
+}
+
+pub fn InitBank(num_workers: i32, filename: &str){
+    let mut bank = Bank::new(10);
+    bank.print_account();
+
+    let file = File::open(filename).expect("Failed to open the file");
+    let reader = BufReader::new(file);
+
+    let mut lines: Vec<String> = reader.lines().map(|line| line.unwrap()).collect();
+    let num_threads = 3;
+    let lines_per_thread = lines.len() / num_threads;
+    let remaining_lines = lines.len() % num_threads;
+
+    // Create the reader threads
+    let mut thread_handles = Vec::new();
+    for i in 0..num_threads {
+        let additional_line = if i < remaining_lines { 1 } else { 0 };
+        let lines_slice = lines.split_off(lines.len() - (lines_per_thread + additional_line));
+        // TESTING CODE TO SEE HOW MUCH EACH READING THREAD HANDLES
+        // println!("thread 1 handles {} lines", lines_per_thread + additional_line);
+
+        let handle = thread::spawn(move || {
+            // Process the assigned lines
+            for line in lines_slice {
+                // Process the line
+                println!("Thread {}: {}", i, line);
+            }
+        });
+
+        thread_handles.push(handle);
+    }
+
+    // Wait for all reader threads to finish
+    for handle in thread_handles {
+        handle.join().unwrap();
+    }
+
+    println!("---------------------------------------------------------------------\nFINISHED INIT BANK");
 }
