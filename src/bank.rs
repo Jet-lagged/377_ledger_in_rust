@@ -16,7 +16,7 @@ use std::sync::{Mutex, Arc, RwLock};
 /// performed by the bank. It is an `Arc` (atomic reference counting) wrapped `Mutex` that allows
 /// multiple threads to safely access and modify the counter.
 pub struct Bank {
-    _num: i32,
+    pub num: i32,
     accounts: Vec<Account>,
     num_succ: Arc<Mutex<i32>>,
     num_fail: Arc<Mutex<i32>>,
@@ -40,10 +40,7 @@ struct Account {
     lock: RwLock<()>,
 }
 
-// TODO: MAKE A NOTE ABOUT THIS SOMEHOW
-// say that it is currently hard coded that the code formats account 
-// and ledger ids with min 2 char and money stuff with min 8 char
-// TODO: actually format the message well
+
 impl Bank {
     /// This function creates a new Bank instance with a specified number of accounts, each with an
     /// account ID incrementing from 0, a balance of 0, and a lock
@@ -55,9 +52,9 @@ impl Bank {
     /// Returns:
     /// 
     /// A new instance of the `Bank` struct is being returned.
-    pub fn new(_num: i32) -> Self {
-        let mut accounts = Vec::with_capacity(_num as usize);
-        for i in 0.._num {
+    pub fn new(num: i32) -> Self {
+        let mut accounts = Vec::with_capacity(num as usize);
+        for i in 0..num {
             accounts.push(Account {
                 account_id: i,
                 balance: 0,
@@ -67,7 +64,7 @@ impl Bank {
         let num_succ = Arc::new(Mutex::new(0));
         let num_fail = Arc::new(Mutex::new(0));
         Bank {
-            _num,
+            num,
             num_succ,
             num_fail,
             accounts,
@@ -102,7 +99,7 @@ impl Bank {
         let account_lock = account.lock.write().unwrap();
         account.balance += amount;
         let message = format!(
-            "Worker {:2} completed ledger {:2}: deposit {:9} into account {:2}",
+            "Worker {:2} completed ledger {:2}:     deposit {:9} into account {:2}",
             worker_id, ledger_id, amount, account_id
         );
         drop(account_lock);
@@ -112,7 +109,7 @@ impl Bank {
         return;
     }
 
-    /// This function allows a worker to withdraw a specified amount from a specified account, updating
+    /// Withdraws a specified amount from a specified account, updating
     /// the account balance and logging the transaction.
     /// 
     /// Arguments:
@@ -128,7 +125,7 @@ impl Bank {
         // Fail 
         if account.balance < amount {
             let message = format!(
-                "Worker {:2} failed to complete ledger {:2}: withdraw {:9} from account {:2}",
+                "Worker {:2} -FAILED-  ledger {:2}:    withdraw {:9} from account {:2}",
                 worker_id, ledger_id, amount, account_id
             );
             drop(account_lock);
@@ -141,7 +138,7 @@ impl Bank {
         // Success
         account.balance -= amount;
         let message = format!(
-            "Worker {:2} completed ledger {:2}: withdraw {:9} from account {:2}",
+            "Worker {:2} completed ledger {:2}:    withdraw {:9} from account {:2}",
             worker_id, ledger_id, amount, account_id
         );
         drop(account_lock);
@@ -165,7 +162,7 @@ impl Bank {
         // Handle tranfering money to oneself
         if src_id == dest_id {
             let message = format!(
-                "Worker {:2} failed to complete ledger {:2}: tranfer {:9} from account {:2} to account {:2}",
+                "Worker {:2} -FAILED-  ledger {:2}:    transfer {:9} from account {:2} to account {:2}",
                 worker_id, ledger_id, amount, src_id, dest_id
             );
             let mut num_fail = self.num_fail.lock().unwrap();
@@ -196,7 +193,7 @@ impl Bank {
         // Fail
         if src_acnt.balance < amount {
             let message = format!(
-                "Worker {:2} failed to complete ledger {:2}: tranfer {:9} from account {:2} to account {:2}",
+                "Worker {:2} -FAILED-  ledger {:2}:    transfer {:9} from account {:2} to account {:2}",
                 worker_id, ledger_id, amount, src_id, dest_id
             );
             drop(src_lock);
@@ -211,7 +208,7 @@ impl Bank {
         src_acnt.balance -= amount;
         dest_acnt.balance += amount;
         let message = format!(
-            "Worker {:2} completed ledger {:2}: tranfer {:9} from account {:2} to account {:2}",
+            "Worker {:2} completed ledger {:2}:    transfer {:9} from account {:2} to account {:2}",
             worker_id, ledger_id, amount, src_id, dest_id
         );
         drop(src_lock);
@@ -222,20 +219,23 @@ impl Bank {
         return;
     }
 
-    /// This function checks the balance of a given account and prints it to the console.
-    /// 
+    /// Checks the balance of a specific account and prints a message with the worker ID,
+    /// ledger ID, account balance, and account ID.
     /// 
     /// Arguments:
     /// 
-    /// * `account_id`: The `account_id` of the `Account` who's balanced is being checked
-    pub fn check_balance(&self, worker_id: i32, account_id: i32) {
+    /// * `worker_id`: An integer representing the ID of the worker who completed the ledger.
+    /// * `ledger_id`: The ID of the ledger for which the balance is being checked.
+    /// * `account_id`: The ID of the account for which the balance needs to be checked.
+    pub fn check_balance(&self, worker_id: i32, ledger_id: i32, account_id: i32) {
         let account = &self.accounts[account_id as usize];
         let account_lock = account.lock.read().unwrap();
         let message = format!(
-            "ID# {:2} | {:9} --- printed by worker {}", account.account_id, account.balance, worker_id
+            "Worker {:2} completed ledger {:2}:    balance= {:9}  for account {:2}", worker_id, ledger_id, account.balance, account.account_id
         );
-        // TODO: check for if its okay to actually print after dropping lock?
-        drop(account_lock); 
+        drop(account_lock);
+        let mut num_succ = self.num_succ.lock().unwrap();
+        *num_succ += 1;
         println!("{}", message);
     }
 }
