@@ -1,7 +1,8 @@
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::thread;
+use std::time::Duration;
 
 use crate::bank::Bank;
 
@@ -20,120 +21,69 @@ pub struct Ledger {
 	pub mode: Mode,
 	pub ledger_id: i32,
 }
-#[derive(Debug)]
-pub struct BoundedBuffer {
-    buffer: Vec<Ledger>,
-    max_size: usize,
-    count: usize,
-    lock: Mutex<()>,
-    not_full: Condvar,
-    not_empty: Condvar,
-}
-
-impl BoundedBuffer {
-    pub fn new(max_size: usize) -> Self {
-        BoundedBuffer {
-            buffer: Vec::<Ledger>::with_capacity(max_size),
-            max_size,
-            count: 0,
-            lock: Mutex::new(()),
-            not_full: Condvar::new(),
-            not_empty: Condvar::new(),
-        }
-    }
-
-	pub fn put(&mut self, item: Ledger) {
-        let mut lock = self.lock.lock().unwrap();
-        while self.count == self.max_size {
-            lock = self.not_full.wait(lock).unwrap();
-        }
-        self.buffer.push(item);
-        self.count += 1;
-        drop(lock);
-        self.not_empty.notify_one();
-    }
-
-	pub fn get(&mut self) -> Ledger {
-        let mut lock = self.lock.lock().unwrap();
-        while self.count == 0 {
-            lock = self.not_empty.wait(lock).unwrap();
-        }
-        let item = self.buffer.remove(0);
-        self.count -= 1;
-        drop(lock);
-        self.not_full.notify_one();
-        item
-    }
-}
-
 
 // not actually implemented
-pub fn read_ledger_line(line: String, bb: &mut BoundedBuffer, ledger_counter: Arc<Mutex<i32>>) {
-    let fields: Vec<&str> = line.split_whitespace().collect::<Vec<&str>>();
-    let from = fields[0].parse::<i32>().unwrap();
-    let to = fields[1].parse::<i32>().unwrap();
-    let amount = fields[2].parse::<i32>().unwrap();
-    let mode = match fields[3] {
-        "D" => Mode::Deposit,
-        "W" => Mode::Withdraw,
-        "T" => Mode::Transfer,
-        "C" => Mode::CheckBalance,
-        _ => {
-            println!("Error: mod not specified");
-            return;
-        }
-    };
-    let mut counter_lock = ledger_counter.lock().unwrap();
-    *counter_lock += 1;
-    let counter = *counter_lock;
-    let ledger = Ledger {
-        from,
-        to,
-        amount,
-        mode,
-        ledger_id: counter,
-    };
+pub fn read_ledger_file(filename: &str) -> Vec<Ledger> {
+    let file = File::open(filename).unwrap();
+    let reader = BufReader::new(file);
 
-    // write to buffer
-    bb.put(ledger);
-    drop(counter_lock);
+    let mut ledger_entries = Vec::new();
+
+    for (i, line_result) in reader.lines().enumerate() {
+        let line = line_result.unwrap();
+        let fields: Vec<&str> = line.split_whitespace().collect::<Vec<&str>>();
+        let from = fields[0].parse::<i32>().unwrap();
+        let to = fields[1].parse::<i32>().unwrap();
+        let amount = fields[2].parse::<i32>().unwrap();
+        let mode = match fields[3] {
+            "D" => Mode::Deposit,
+            "W" => Mode::Withdraw,
+            "T" => Mode::Transfer,
+            "C" => Mode::CheckBalance,
+            _ => {
+                println!("Error: mod not specified");
+                return Vec::new();
+            }
+        };
+        let ledger = Ledger {
+            from,
+            to,
+            amount,
+            mode,
+            ledger_id: i as i32,
+        };
+        ledger_entries.push(ledger);
+    }
+    return ledger_entries;
 }
 
+
+// SOMEHOW
+// this mess of a InitBank works and final balance of account 0 is 200
 pub fn InitBank(num_workers: i32, filename: &str){
     let mut bank = Bank::new(10);
     bank.print_account();
+    let mut bank = Arc::new(Mutex::new(Bank::new(10)));
 
-    let file = File::open(filename).expect("Failed to open the file");
-    let reader = BufReader::new(file);
+    let mut ledger_list = read_ledger_file(filename);
 
-    let mut lines: Vec<String> = reader.lines().map(|line| line.unwrap()).collect();
-    let num_threads = 3;
-    let lines_per_thread = lines.len() / num_threads;
-    let remaining_lines = lines.len() % num_threads;
-
-    // Create the reader threads
-    let mut thread_handles = Vec::new();
-    for i in 0..num_threads {
-        let additional_line = if i < remaining_lines { 1 } else { 0 };
-        let lines_slice = lines.split_off(lines.len() - (lines_per_thread + additional_line));
-        // TESTING CODE TO SEE HOW MUCH EACH READING THREAD HANDLES
-        // println!("thread 1 handles {} lines", lines_per_thread + additional_line);
-
+    let mut handles = vec![];
+    let random_numbers = [751, 42, 879, 614, 187, 935, 263, 512, 933, 65];
+    for i in 0..10 {
+        let mut bank = Arc::clone(&bank);
         let handle = thread::spawn(move || {
-            // Process the assigned lines
-            for line in lines_slice {
-                // Process the line
-                println!("Thread {}: {}", i, line);
-            }
+            thread::sleep(Duration::from_millis(random_numbers[i]));
+            bank.lock().unwrap().deposit(i as i32, 0, 0, 69);
         });
-
-        thread_handles.push(handle);
+        handles.push(handle);
     }
 
-    // Wait for all reader threads to finish
-    for handle in thread_handles {
+    for handle in handles {
         handle.join().unwrap();
     }
 
+    let lock = bank.lock().unwrap();
+    lock.print_account();
     println!("---------------------------------------------------------------------\nFINISHED INIT BANK"); 
 }
+
