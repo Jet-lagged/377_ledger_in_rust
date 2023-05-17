@@ -1,21 +1,21 @@
-use std::sync::{Condvar, Mutex};
-use std::io::{BufRead, BufReader};
-use std::fs::File;
+use std::sync::{Arc, Condvar, Mutex};
 
-
+#[derive(Debug)]
 pub enum Mode {
     Deposit,
     Withdraw,
     Transfer,
     CheckBalance,
 }
+#[derive(Debug)]
 pub struct Ledger {
 	pub from: i32,
 	pub to: i32,
 	pub amount: i32,
 	pub mode: Mode,
-	pub ledgerID: i32,
+	pub ledger_id: i32,
 }
+#[derive(Debug)]
 pub struct BoundedBuffer {
     buffer: Vec<Ledger>,
     max_size: usize,
@@ -44,6 +44,7 @@ impl BoundedBuffer {
         }
         self.buffer.push(item);
         self.count += 1;
+        drop(lock);
         self.not_empty.notify_one();
     }
 
@@ -54,6 +55,7 @@ impl BoundedBuffer {
         }
         let item = self.buffer.remove(0);
         self.count -= 1;
+        drop(lock);
         self.not_full.notify_one();
         item
     }
@@ -61,38 +63,33 @@ impl BoundedBuffer {
 
 
 // not actually implemented
-pub fn read_ledger_file(filename: &str, bb: BoundedBuffer) {
-    let file = File::open(filename).unwrap();
-    let reader = BufReader::new(file);
-    for line in reader.lines() {
-        let line = line.unwrap();
-        let fields: Vec<&str> = line.split_whitespace().collect();
-        let from = fields[0].parse::<i32>().unwrap();
-        let to = fields[1].parse::<i32>().unwrap();
-        let amount = fields[2].parse::<i32>().unwrap();
-        let mode = match fields[3] {
-            "D" => Mode::Deposit,
-            "W" => Mode::Withdraw,
-            "T" => Mode::Transfer,
-            "C" => Mode::CheckBalance,
-            _ => {
-                println!("Error: mod not specified");
-                return;
-            }
-        };
+pub fn read_ledger_line(line: &str, bb: &mut BoundedBuffer, ledger_counter: Arc<Mutex<i32>>) {
+    let fields: Vec<&str> = line.split_whitespace().collect();
+    let from = fields[0].parse::<i32>().unwrap();
+    let to = fields[1].parse::<i32>().unwrap();
+    let amount = fields[2].parse::<i32>().unwrap();
+    let mode = match fields[3] {
+        "D" => Mode::Deposit,
+        "W" => Mode::Withdraw,
+        "T" => Mode::Transfer,
+        "C" => Mode::CheckBalance,
+        _ => {
+            println!("Error: mod not specified");
+            return;
+        }
+    };
+    let mut counter_lock = ledger_counter.lock().unwrap();
+    *counter_lock += 1;
+    let counter = *counter_lock;
+    let ledger = Ledger {
+        from,
+        to,
+        amount,
+        mode,
+        ledger_id: counter,
+    };
 
-        // TODO: THINK UP WAY TO CORRECTLY ADD LEDGER ID INTO SYSTEM
-        let ledger = Ledger {
-            from,
-            to,
-            amount,
-            mode,
-            ledgerID: ???,
-        };
-
-        // write to buffer
-        let bb_lock = bb.lock.lock().unwrap();
-        bb.put(ledger);
-        drop(bb_lock);
-    }
+    // write to buffer
+    bb.put(ledger);
+    drop(counter_lock);
 }

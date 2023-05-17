@@ -1,4 +1,6 @@
 
+use std::sync::{Mutex, Arc};
+
 mod bank;
 use bank::Bank;
 mod ledger;
@@ -6,17 +8,11 @@ mod ledger;
 fn main() {
     let mut bank = Bank::new(5);
 
-    bank.deposit(0, 0, 0, 300);
-    bank.withdraw(0, 1, 0, 200);
-    bank.withdraw(0, 1, 0, 200);
 
-    
-    bank.deposit(0, 2, 1, 500);
-    // 0 has 100, 1 has 500
-    bank.print_account();
-    bank.transfer(0, 3, 1, 0, 300);
-    // 0 has 400, 1 has 200
-    bank.print_account();
-    bank.check_balance(1);
+    let line = "0 0 500 D";
+    let mut buffer: ledger::BoundedBuffer = ledger::BoundedBuffer::new(5);
+    let counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 
+    ledger::read_ledger_line(line, &mut buffer, counter);
+    println!("{:#?}", buffer);
 }

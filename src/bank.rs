@@ -43,6 +43,7 @@ struct Account {
 // TODO: MAKE A NOTE ABOUT THIS SOMEHOW
 // say that it is currently hard coded that the code formats account 
 // and ledger ids with min 2 char and money stuff with min 8 char
+// TODO: actually format the message well
 impl Bank {
     /// This function creates a new Bank instance with a specified number of accounts, each with an
     /// account ID incrementing from 0, a balance of 0, and a lock
@@ -63,8 +64,8 @@ impl Bank {
                 lock: RwLock::new(()),
             });
         }
-        let num_succ = Arc::new(Mutex::new(0 as i32));
-        let num_fail = Arc::new(Mutex::new(0 as i32));
+        let num_succ = Arc::new(Mutex::new(0));
+        let num_fail = Arc::new(Mutex::new(0));
         Bank {
             _num,
             num_succ,
