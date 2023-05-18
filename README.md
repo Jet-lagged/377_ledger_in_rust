@@ -1,5 +1,5 @@
 # 377 Final Project: Ledger in Rust
-[Presentation](https://www.youtube.com/watch?v=VIDEO_ID) (will be added when video uploads to youtube)
+[Presentation (youtube)](https://youtu.be/aRFUzX6r7TI)
 
 ## About
 Rust implementation of a multi-threaded Producer/Consumer model of a bank based on [Pr4: Producer/Consumer](https://umass-cs-377.github.io/docs/projects/prodcon/) For a final project in an OS class with Timothy Richards. The gist of the goal is to take a ledger list, parse it, process the transactions within a bank with bank accounts, and to do so with multiple threads using shared-state concurrency. Each line in the ldeger list is made into a `Ledger` struct and put into a vector, eventually being processed by a number of worker threads who do the depositing or withdrawl of money from a bank account in the bank. The program only processes 1 ledger list before terminating.
