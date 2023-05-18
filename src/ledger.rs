@@ -7,38 +7,18 @@ use std::time::Duration;
 use crate::bank::Bank;
 
 pub enum Mode {
-    /// `Deposit` is a mode of a financial transaction represented by the `Ledger` struct. It adds a
-    /// specified amount of currency to the account of the sender (`from` property of the `Ledger`
-    /// struct).
     Deposit,
-    /// `Withdraw` is a mode of a financial transaction represented by the `Ledger` struct. It subtracts
-    /// a specified amount of currency from the account of the sender (`from` property of the `Ledger`
-    /// struct).
     Withdraw,
-    /// `Transfer` is a mode of a financial transaction represented by the `Ledger` struct. It transfers
-    /// a specified amount of currency from the account of the sender (`from` property of the `Ledger`
-    /// struct) to the account of the recipient (`to` property of the `Ledger` struct).
     Transfer,
-    /// `CheckBalance` is a mode of a financial transaction represented by the `Ledger` struct. It is
-    /// used to check the balance of a specific account (`from` property of the `Ledger` struct) in the
-    /// bank. It does not add or subtract any currency from the account.
     CheckBalance,
 }
 /// The `Ledger` struct represents a financial transaction with information about the sender(`from`), receiver(`to`),
 /// `amount`, `mode`, and `ledger_id`.
 pub struct Ledger {
-    /// This property represents the account number or identifier of the sender of a transaction in a
-    /// ledger. 
     pub from: i32,
-    /// This property represents the account number or identifier of the recipient of a transaction in a
-    /// ledger. Used for transfering money: the `to` account gains money.
 	pub to: i32,
-	/// This property represents the amount of currency being handled in the transaction
     pub amount: i32,
-	/// This property represents the `Mode of` the transaction, which can be one of four options: `Deposit`,
-    /// `Withdraw`, `Transfer`, or `CheckBalance`.
     pub mode: Mode,
-	/// This property represents the unique identifier of a ledger transaction.
     pub ledger_id: i32,
 }
 
