@@ -1,19 +1,32 @@
-
 mod bank;
-use bank::Bank;
+mod ledger;
+use std::env;
+use ledger::init_bank;
 
+/// Takes command line arguments, checks if they are valid, and initializes a bank
+/// with the specified number of threads and ledger file.
 fn main() {
-    let mut bank = Bank::new(5);
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 4 {
+        println!("Usage: final_project <num_of_threads> <ledger_file> <sleep: bool>");
+    } else {
+        let num_threads: i32 = match &args[1].parse() {
+            Ok(num) => *num,
+            Err(_) => {
+                println!("num_threads should be a number");
+                return;
+            }
+        };
+        let ledger_file = format!("ledgers/{}", &args[2]);
+        let ledger_file = ledger_file.as_str();
 
-    bank.deposit(0, 0, 0, 300);
-    bank.withdraw(0, 1, 0, 200);
-    bank.withdraw(0, 1, 0, 200);
-
-    
-    bank.deposit(0, 2, 1, 500);
-    // 0 has 100, 1 has 500
-    bank.print_account();
-    bank.transfer(0, 3, 1, 0, 300);
-    // 0 has 400, 1 has 200
-    bank.print_account();
+        let sleep = match &args[3].parse::<bool>() {
+            Ok(value) => *value,
+            Err(_) => {
+                println!("sleep should be a boolean.");
+                return;
+            }
+        };
+        init_bank(num_threads, ledger_file, sleep);
+    }
 }
