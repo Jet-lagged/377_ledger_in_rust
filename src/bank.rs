@@ -1,4 +1,4 @@
-#[derive(Debug)]
+
 /// The `Bank` struct contains a number, a vector of `Account` structs, and two `Arc<Mutex<i32>>`
 /// variables for tracking successful and failed operations.
 /// 
@@ -21,7 +21,6 @@ pub struct Bank {
     num_fail: i32,
 }
 
-#[derive(Debug)]
 /// The `Account` struct represents a bank account with an account ID, balance, and a read-write lock.
 /// 
 /// Properties:
