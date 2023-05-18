@@ -8,7 +8,7 @@ use ledger::init_bank;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
-        println!("Usage: final_project <num_of_threads> <ledger_file> <sleep: bool>");
+        println!("Usage: cargo run <num_of_threads> <ledger_file> <sleep: bool>");
     } else {
         let num_threads: i32 = match &args[1].parse() {
             Ok(num) => *num,

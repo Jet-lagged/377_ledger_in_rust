@@ -84,7 +84,12 @@ impl Bank {
     /// * `account_id`: The `account_id` of the `Account` to which the deposit is being made.
     /// * `amount`: The amount of money to be deposited into the specified  `Account`.
     pub fn deposit(&mut self, worker_id: i32, ledger_id: i32, account_id: i32, amount: i32) {
-        // Success (always)
+        if account_id < -1 || account_id >= self.num {
+            self.num_fail += 1;
+            println!("Worker {:2} -FAILED-  ledger {:2}:   Ledger Error: no account with inputted ID", worker_id, ledger_id);
+            return;
+        }
+        // Success
         let mut account = &mut self.accounts[account_id as usize];
         account.balance += amount;
         let message = format!(
@@ -106,8 +111,13 @@ impl Bank {
     /// * `account_id`: The `account_id` of the `Account` from which the withdrawal is being made.
     /// * `amount`: The amount of money to withdraw from the `Account`.
     pub fn withdraw(&mut self, worker_id: i32, ledger_id: i32, account_id: i32, amount: i32) {
-        let mut account = &mut self.accounts[account_id as usize];
+        if account_id < -1 || account_id >= self.num {
+            self.num_fail += 1;
+            println!("Worker {:2} -FAILED-  ledger {:2}:   Ledger Error: no account with inputted ID", worker_id, ledger_id);
+            return;
+        }
 
+        let mut account = &mut self.accounts[account_id as usize];
         // Fail 
         if account.balance < amount {
             let message = format!(
@@ -141,6 +151,14 @@ impl Bank {
     /// * `dest_id`: The `account_id` of the `Account` where the transferred amount will be deposited.
     /// * `amount`: The amount of money to be transferred from one `Account` to another.
     pub fn transfer(&mut self, worker_id: i32, ledger_id: i32, src_id: usize, dest_id: usize, amount: i32) {
+        let comp = src_id as i32;
+        let comp2 = dest_id as i32;
+        if comp < -1 || comp >= self.num  || comp2 < -1 || comp2 >= self.num{
+            self.num_fail += 1;
+            println!("Worker {:2} -FAILED-  ledger {:2}:   Ledger Error: no account with inputted ID", worker_id, ledger_id);
+            return;
+        }
+
         // Handle tranfering money to oneself
         if src_id == dest_id {
             let message = format!(
@@ -193,6 +211,12 @@ impl Bank {
     /// * `ledger_id`: The ID of the ledger for which the balance is being checked.
     /// * `account_id`: The ID of the account for which the balance needs to be checked.
     pub fn check_balance(&mut self, worker_id: i32, ledger_id: i32, account_id: i32) {
+        if account_id < -1 || account_id >= self.num {
+            self.num_fail += 1;
+            println!("Worker {:2} -FAILED-  ledger {:2}:   Ledger Error: no account with inputted ID", worker_id, ledger_id);
+            return;
+        }
+
         let account = &self.accounts[account_id as usize];
         let message = format!(
             "Worker {:2} completed ledger {:2}:    balance= {:9}  for account {:2}", worker_id, ledger_id, account.balance, account.account_id

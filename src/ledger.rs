@@ -133,15 +133,11 @@ pub fn init_bank(num_workers: i32, filename: &str, sleep: bool){
                 let mut bank_lock = bank.lock().unwrap();
                 // uncomment to show that only one thread can access the bank at a time
                 // thread::sleep(Duration::from_millis(3000 as u64));
-                if l.from < 0 || l.from >= bank_lock.num {
-                    println!("Worker {:2} -FAILED-  ledger {:2}:   Ledger Error: no account of this ID", worker_id, l.ledger_id);
-                } else {
-                    match l.mode {
-                        Mode::Deposit => bank_lock.deposit(worker_id, l.ledger_id, l.from, l.amount),
-                        Mode::Withdraw => bank_lock.withdraw(worker_id, l.ledger_id, l.from, l.amount),
-                        Mode::Transfer => bank_lock.transfer(worker_id, l.ledger_id, l.from as usize, l.to as usize, l.amount),
-                        Mode::CheckBalance => bank_lock.check_balance(worker_id, l.ledger_id, l.from),
-                    }
+                match l.mode {
+                    Mode::Deposit => bank_lock.deposit(worker_id, l.ledger_id, l.from, l.amount),
+                    Mode::Withdraw => bank_lock.withdraw(worker_id, l.ledger_id, l.from, l.amount),
+                    Mode::Transfer => bank_lock.transfer(worker_id, l.ledger_id, l.from as usize, l.to as usize, l.amount),
+                    Mode::CheckBalance => bank_lock.check_balance(worker_id, l.ledger_id, l.from),
                 }
                 drop(bank_lock);
             } // thread loop ends
